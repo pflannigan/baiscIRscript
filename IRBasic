@@ -1,0 +1,38 @@
+# Use this as a basic tool to check your failed login attempts, Suspicious Processes, Modified Executables in Program Files, Open Network Connections, Suspicious Scheduled Tasks.
+# Basic - Incident Response Script
+
+# Create log directory
+$logPath = "C:\INSERTFILEPATH"
+If (!(Test-Path $logPath)) {
+    New-Item -ItemType Directory -Path $logPath
+}
+$logFile = "$logPath\report.txt"
+"===== Cyber Security Incident Response Report =====" | Out-File $logFile
+
+# 1. Suspicious Processes
+"--- Suspicious Running Processes ---" | Out-File $logFile -Append
+Get-Process | Where-Object { $_.Path -and $_.Path -like "*Temp*" } | Select-Object Name, Path | Out-File $logFile -Append
+
+# 2. Failed Login Attempts
+"--- Failed Login Attempts (Last 24h) ---" | Out-File $logFile -Append
+Get-WinEvent -FilterHashtable @{LogName='Security'; ID=4625; StartTime=(Get-Date).AddDays(-1)} |
+Select-Object TimeCreated, Message | Out-File $logFile -Append
+
+# 3. Modified Executables in Program Files
+"--- Modified Executables in Program Files (Last 3 days) ---" | Out-File $logFile -Append
+Get-ChildItem -Path "C:\Program Files", "C:\Program Files (x86)" -Recurse -Include *.exe -ErrorAction SilentlyContinue |
+Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-3) } | Select-Object Name, LastWriteTime, FullName |
+Out-File $logFile -Append
+
+# 4. Open Network Connections
+"--- Active Network Connections ---" | Out-File $logFile -Append
+netstat -an | Out-File $logFile -Append
+
+# 5. Suspicious Scheduled Tasks
+"--- Suspicious Scheduled Tasks ---" | Out-File $logFile -Append
+Get-ScheduledTask | Where-Object {$_.TaskName -like "*update*" -or $_.TaskName -like "*patch*"} |
+Select-Object TaskName, TaskPath | Out-File $logFile -Append
+
+# 6. Completion
+"`nScan complete. Report saved to $logFile" | Out-File $logFile -Append
+Write-Output "✅ Scan complete. Review the log at: $logFile"
